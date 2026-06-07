@@ -1,0 +1,70 @@
+name: Release GoAT Launcher
+
+on:
+  push:
+    tags:
+      - 'v*' # Triggers the workflow on version tags, e.g., v1.0.0
+
+permissions:
+  contents: write
+
+jobs:
+  build-and-release:
+    name: Build and Release Binaries
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Source Code
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.21' # Adjust to match your project's Go version
+          cache: true
+
+      - name: Install fyne-cross
+        run: go install github.com/fyne-io/fyne-cross@latest
+
+      - name: Build Binaries via fyne-cross
+        run: |
+          # Linux amd64 & arm64
+          fyne-cross linux -arch amd64,arm64 -ldflags="-s -w"
+          
+          # Windows amd64
+          fyne-cross windows -arch amd64 -ldflags="-s -w"
+          
+          # macOS (Darwin) amd64 & arm64
+          fyne-cross darwin -arch amd64,arm64 -ldflags="-s -w"
+
+      - name: Package and Rename Assets
+        run: |
+          mkdir -p dist/
+          
+          # Fyne-cross outputs binaries into formal directory structures under fyne-cross/dist/
+          # We copy and clean up the naming conventions for the GitHub Release assets
+          
+          # Linux
+          cp fyne-cross/dist/linux-amd64/goat-launcher dist/goat-launcher-linux-amd64
+          cp fyne-cross/dist/linux-arm64/goat-launcher dist/goat-launcher-linux-arm64
+          
+          # Windows
+          cp fyne-cross/dist/windows-amd64/goat-launcher.exe dist/goat-launcher-windows-amd64.exe
+          
+          # macOS (Fyne-cross outputs .app bundles/images for Darwin; zip them up)
+          cd fyne-cross/dist/darwin-amd64 && zip -r ../../../dist/goat-launcher-darwin-amd64.app.zip *.app && cd -
+          cd fyne-cross/dist/darwin-arm64 && zip -r ../../../dist/goat-launcher-darwin-arm64.app.zip *.app && cd -
+
+      - name: Create GitHub Release and Upload Assets
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            dist/goat-launcher-linux-amd64
+            dist/goat-launcher-linux-arm64
+            dist/goat-launcher-windows-amd64.exe
+            dist/goat-launcher-darwin-amd64.app.zip
+            dist/goat-launcher-darwin-arm64.app.zip
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
