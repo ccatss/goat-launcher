@@ -1,6 +1,7 @@
 package launcher
 
 import (
+	_ "embed"
 	"fmt"
 	"log"
 	"net/url"
@@ -60,11 +61,19 @@ func New(opts ...Option) *Launcher {
 	return l
 }
 
+//go:embed icon.png
+var iconBytes []byte
+
 func (l *Launcher) Start() {
+	icon := fyne.NewStaticResource("icon.png", iconBytes)
+
 	l.app = app.New()
+	l.app.SetIcon(icon)
+
 	l.window = l.app.NewWindow("GoAT Launcher")
 	l.window.Resize(fyne.NewSize(400, 200))
 
+	l.window.SetIcon(icon)
 	profiles := []string{"Add New Profile"}
 
 	keys, err := l.store.List()
