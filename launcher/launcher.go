@@ -93,6 +93,8 @@ func (l *Launcher) Start() {
 		l.selectedAccount = value
 
 		if value == "Add New Profile" {
+			l.accountSelect.ClearSelected()
+
 			// Prompt for new profile
 			l.addProfile()
 		} else {
