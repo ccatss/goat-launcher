@@ -61,11 +61,11 @@ func New(opts ...Option) *Launcher {
 	return l
 }
 
-//go:embed icon.png
+//go:embed Icon.png
 var iconBytes []byte
 
 func (l *Launcher) Start() {
-	icon := fyne.NewStaticResource("icon.png", iconBytes)
+	icon := fyne.NewStaticResource("Icon.png", iconBytes)
 
 	l.app = app.New()
 	l.app.SetIcon(icon)

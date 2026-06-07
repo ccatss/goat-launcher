@@ -87,7 +87,7 @@ jobs:
         run: |
           go install fyne.io/tools/cmd/fyne@latest
           # Use Fyne tool to turn the raw binary into a proper app package
-          fyne package -os darwin -executable build_output/${{ matrix.artifact_name }}
+          fyne package -os darwin -executable build_output/${{ matrix.artifact_name }} -source-dir ./cmd -icon Icon.png -name "GoAT Launcher"
           zip -r build_output/${{ matrix.artifact_name }}.app.zip GoAT\ Launcher.app
 
       # --- Upload Intermediate Artifacts ---
