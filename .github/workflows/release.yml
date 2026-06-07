@@ -54,13 +54,26 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y libgl1-mesa-dev xorg-dev
 
-      - name: Configure Linux Cross-Compiler (for arm64 on amd64 host)
+      - name: Configure Linux Cross-Compiler
         if: matrix.os == 'ubuntu-latest' && matrix.goarch == 'arm64'
         run: |
-          sudo dpkg --add-architecture arm64
-          sudo apt-get update
-          sudo apt-get install -y gcc-aarch64-linux-gnu libgl1-mesa-dev:arm64 xorg-dev:arm64
-          echo "CC=aarch64-linux-gnu-gcc" >> $GITHUB_ENV
+         sudo dpkg --add-architecture arm64
+            
+         sudo sed -i 's/deb http/deb [arch=amd64,i386] http/g' /etc/apt/sources.list
+         if [ -f /etc/apt/sources.list.d/ubuntu.sources ]; then
+           sudo sed -i 's/Types: deb/Types: deb\nArchitectures: amd64 i386/g' /etc/apt/sources.list.d/ubuntu.sources
+         fi
+            
+         CODENAME=$(lsb_release -cs)
+         sudo tee /etc/apt/sources.list.d/arm64-ports.list <<EOF
+         deb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports/ ${CODENAME} main restricted universe
+         deb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports/ ${CODENAME}-updates main restricted universe
+         deb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports/ ${CODENAME}-security main restricted universe
+         EOF
+            
+         sudo apt-get update
+         sudo apt-get install -y gcc-aarch64-linux-gnu libgl1-mesa-dev:arm64 xorg-dev:arm64
+         echo "CC=aarch64-linux-gnu-gcc" >> $GITHUB_ENV
 
       # --- Compilation Step ---
       - name: Build Binary
