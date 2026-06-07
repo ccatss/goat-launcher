@@ -32,10 +32,6 @@ jobs:
             goarch: arm64
             job_name: macOS arm64
             artifact_name: goat-launcher-darwin-arm64
-          - os: macos-13 # Intel runner
-            goarch: amd64
-            job_name: macOS amd64
-            artifact_name: goat-launcher-darwin-amd64
 
     steps:
       - name: Checkout Source Code
@@ -124,7 +120,6 @@ jobs:
             dist/goat-launcher-linux-amd64
             dist/goat-launcher-linux-arm64
             dist/goat-launcher-windows-amd64.exe
-            dist/goat-launcher-darwin-amd64.app.zip
             dist/goat-launcher-darwin-arm64.app.zip
           draft: false
           prerelease: false
