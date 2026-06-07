@@ -68,7 +68,16 @@ jobs:
          EOF
             
          sudo apt-get update
-         sudo apt-get install -y gcc-aarch64-linux-gnu libgl1-mesa-dev:arm64 xorg-dev:arm64
+         sudo apt-get install -y \
+          gcc-aarch64-linux-gnu \
+          libgl1-mesa-dev:arm64 \
+          libx11-dev:arm64 \
+          libxrandr-dev:arm64 \
+          libxinerama-dev:arm64 \
+          libxcursor-dev:arm64 \
+          libxi-dev:arm64 \
+          libxxf86vm-dev:arm64
+          
          echo "CC=aarch64-linux-gnu-gcc" >> $GITHUB_ENV
 
       # --- Compilation Step ---
