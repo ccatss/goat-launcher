@@ -316,7 +316,7 @@ func OpenBrowser(url string) error {
 	}
 
 	// Run the command and wait for it to execute
-	return cmd.Run()
+	return cmd.Start()
 }
 
 func parseJagexState(str string) url.Values {
