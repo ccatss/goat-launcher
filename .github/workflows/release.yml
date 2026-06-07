@@ -3,15 +3,39 @@ name: Release GoAT Launcher
 on:
   push:
     tags:
-      - 'v*'
+      - 'v*' # Triggers on version tags, e.g., v1.0.0
 
 permissions:
   contents: write
 
 jobs:
-  build-and-release:
-    name: Build and Release Binaries
-    runs-on: ubuntu-latest
+  build-desktop:
+    name: Build ${{ matrix.job_name }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            goarch: amd64
+            job_name: Linux amd64
+            artifact_name: goat-launcher-linux-amd64
+          - os: ubuntu-latest
+            goarch: arm64
+            job_name: Linux arm64
+            artifact_name: goat-launcher-linux-arm64
+          - os: windows-latest
+            goarch: amd64
+            job_name: Windows amd64
+            artifact_name: goat-launcher-windows-amd64.exe
+          - os: macos-14 # Apple Silicon runner
+            goarch: arm64
+            job_name: macOS arm64
+            artifact_name: goat-launcher-darwin-arm64
+          - os: macos-13 # Intel runner
+            goarch: amd64
+            job_name: macOS amd64
+            artifact_name: goat-launcher-darwin-amd64
 
     steps:
       - name: Checkout Source Code
@@ -23,39 +47,64 @@ jobs:
           go-version: '1.26'
           cache: true
 
-      - name: Install fyne-cross
-        run: go install github.com/fyne-io/fyne-cross@latest
-
-      - name: Build Binaries via fyne-cross
+      # --- Linux Platform Dependencies ---
+      - name: Install Linux Graphics Headers
+        if: matrix.os == 'ubuntu-latest'
         run: |
-          # Linux amd64 & arm64
-          fyne-cross linux -arch amd64,arm64 -ldflags="-s -w"
-          
-          # Windows amd64
-          fyne-cross windows -arch amd64 -ldflags="-s -w"
-          
-          # macOS (Darwin) amd64 & arm64
-          fyne-cross darwin -arch amd64,arm64 -ldflags="-s -w"
+          sudo apt-get update
+          sudo apt-get install -y libgl1-mesa-dev xorg-dev
 
-      - name: Package and Rename Assets
+      - name: Configure Linux Cross-Compiler (for arm64 on amd64 host)
+        if: matrix.os == 'ubuntu-latest' && matrix.goarch == 'arm64'
         run: |
-          mkdir -p dist/
-          
-          # Fyne-cross outputs binaries into formal directory structures under fyne-cross/dist/
-          # We copy and clean up the naming conventions for the GitHub Release assets
-          
-          # Linux
-          cp fyne-cross/dist/linux-amd64/goat-launcher dist/goat-launcher-linux-amd64
-          cp fyne-cross/dist/linux-arm64/goat-launcher dist/goat-launcher-linux-arm64
-          
-          # Windows
-          cp fyne-cross/dist/windows-amd64/goat-launcher.exe dist/goat-launcher-windows-amd64.exe
-          
-          # macOS (Fyne-cross outputs .app bundles/images for Darwin; zip them up)
-          cd fyne-cross/dist/darwin-amd64 && zip -r ../../../dist/goat-launcher-darwin-amd64.app.zip *.app && cd -
-          cd fyne-cross/dist/darwin-arm64 && zip -r ../../../dist/goat-launcher-darwin-arm64.app.zip *.app && cd -
+          sudo dpkg --add-architecture arm64
+          sudo apt-get update
+          sudo apt-get install -y gcc-aarch64-linux-gnu libgl1-mesa-dev:arm64 xorg-dev:arm64
+          echo "CC=aarch64-linux-gnu-gcc" >> $GITHUB_ENV
 
-      - name: Create GitHub Release and Upload Assets
+      # --- Compilation Step ---
+      - name: Build Binary
+        env:
+          GOOS: ${{ matrix.os == 'windows-latest' && 'windows' || (matrix.os == 'ubuntu-latest' && 'linux' || 'darwin') }}
+          GOARCH: ${{ matrix.goarch }}
+          CGO_ENABLED: 1
+        run: |
+          go build -ldflags="-s -w" -o build_output/${{ matrix.artifact_name }} main.go
+
+      # --- macOS Specific Bundle Packaging ---
+      # Fyne binaries on macOS need to be packaged into a .app structure to execute correctly.
+      - name: Package macOS App Bundle
+        if: startsWith(matrix.os, 'macos-')
+        run: |
+          go install fyne.io/tools/cmd/fyne@latest
+          # Use Fyne tool to turn the raw binary into a proper app package
+          fyne package -os darwin -executable build_output/${{ matrix.artifact_name }}
+          zip -r build_output/${{ matrix.artifact_name }}.app.zip GoAT\ Launcher.app
+
+      # --- Upload Intermediate Artifacts ---
+      - name: Upload Temporary Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact_name }}
+          path: |
+            build_output/${{ matrix.artifact_name }}*
+            !build_output/*.app # Don't upload the raw unpacked mac folder
+
+  create-release:
+    name: Create GitHub Release
+    needs: build-desktop
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download All Artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+
+      - name: Display Downloaded Files
+        run: ls -R dist/
+
+      - name: Publish Release Assets
         uses: softprops/action-gh-release@v2
         with:
           files: |
