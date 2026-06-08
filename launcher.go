@@ -97,7 +97,7 @@ func New(opts ...Option) (*Launcher, error) {
 	return l, nil
 }
 
-//go:embed Icon.png
+//go:embed cmd/Icon.png
 var iconBytes []byte
 
 func (l *Launcher) Start() {

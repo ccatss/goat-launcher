@@ -19,7 +19,7 @@ func NewEnv() EnvMap {
 			em[parts[0]] = parts[1]
 		}
 	}
-	
+
 	return em
 }
 
