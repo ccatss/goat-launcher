@@ -63,6 +63,7 @@ var rootCmd = &cobra.Command{
 
 		opts := []launcher.Option{
 			launcher.WithDataDirectory(dataDir),
+			launcher.WithConfig(viper.GetViper()),
 		}
 
 		if storeType != "" {

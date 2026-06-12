@@ -78,6 +78,7 @@ func New(opts ...Option) (*Launcher, error) {
 		client: &auth.Client{},
 		app:    app.New(),
 		icon:   icon,
+		config: viper.GetViper(),
 	}
 
 	for _, opt := range opts {
@@ -113,15 +114,22 @@ func (l *Launcher) Start() {
 
 	l.characterSelect.PlaceHolder = "Select a character..."
 
-	l.accountSelect = widget.NewSelect([]string{"Add New Account"}, func(value string) {
+	l.accountSelect = widget.NewSelect([]string{"No Account", "Add New Account"}, func(value string) {
 		l.selectedAccount = value
 
 		if value == "Add New Account" {
-			l.accountSelect.ClearSelected()
-
 			// Prompt for new profile
 			go l.addProfile()
+
+			l.accountSelect.ClearSelected()
+		} else if value == "No Account" {
+			// Disable character select
+			l.characterSelect.Disable()
 		} else if value != "" {
+			if l.characterSelect.Disabled() {
+				l.characterSelect.Enable()
+			}
+
 			go l.handleAccountSelect(value)
 		}
 	})
@@ -129,7 +137,7 @@ func (l *Launcher) Start() {
 	l.accountSelect.PlaceHolder = "Select a profile..."
 
 	launchBtn := widget.NewButton("Launch", func() {
-		if l.selectedAccount == "" || l.selectedCharacter == "" {
+		if l.selectedAccount == "" || l.selectedAccount != "No Account" && l.selectedCharacter == "" {
 			l.showError("Please select an account and character.")
 			return
 		}
@@ -194,7 +202,7 @@ func (l *Launcher) Start() {
 func (l *Launcher) populateData() {
 	keys, err := l.store.List()
 
-	profiles := []string{"Add New Account"}
+	profiles := []string{"No Account", "Add New Account"}
 
 	if err == nil {
 		profiles = append(keys, profiles...)
@@ -462,23 +470,27 @@ func (l *Launcher) launch() {
 
 	var selectedAccount *auth.Account
 
-	for _, account := range l.currentAccounts {
-		if account.DisplayName == l.selectedCharacter {
-			selectedAccount = &account
-			break
+	if l.selectedAccount != "No Account" {
+		for _, account := range l.currentAccounts {
+			if account.DisplayName == l.selectedCharacter {
+				selectedAccount = &account
+				break
+			}
 		}
-	}
 
-	if selectedAccount == nil {
-		l.showError(fmt.Sprintf("no account found for %s", l.selectedCharacter))
-		return
+		if selectedAccount == nil {
+			l.showError(fmt.Sprintf("no account found for %s", l.selectedCharacter))
+			return
+		}
 	}
 
 	env := NewEnv()
 
-	env.Set("JX_SESSION_ID", l.currentSession.SessionID)
-	env.Set("JX_CHARACTER_ID", selectedAccount.AccountID)
-	env.Set("JX_DISPLAY_NAME", selectedAccount.DisplayName)
+	if selectedAccount != nil {
+		env.Set("JX_SESSION_ID", l.currentSession.SessionID)
+		env.Set("JX_CHARACTER_ID", selectedAccount.AccountID)
+		env.Set("JX_DISPLAY_NAME", selectedAccount.DisplayName)
+	}
 
 	cmd.Env = env.Slice()
 
